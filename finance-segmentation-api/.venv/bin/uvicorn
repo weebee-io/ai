@@ -1,4 +1,4 @@
-#!/Users/hyukjunmon/dev/ing/ml-fastapi/ml/.venv/bin/python3.12
+#!/Users/hyukjunmon/dev/ing/weebee/finance-segmentation-api/.venv/bin/python3.12
 # -*- coding: utf-8 -*-
 import re
 import sys
