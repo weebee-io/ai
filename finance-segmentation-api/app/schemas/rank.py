@@ -1,5 +1,5 @@
 from pydantic import BaseModel
 
 class PredictionOut(BaseModel):
-    cluster: int
+    user_rank: str
     proba: float | None = None

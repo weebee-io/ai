@@ -9,10 +9,10 @@ class PredictService:
 
     def predict(self, data: InputData) -> PredictionOut:
         X = np.array([list(data.model_dump().values())])
-        pred = int(self.model.predict(X)[0])
+        pred = self.model.predict(X)[0]  # 문자열 그대로 사용
 
         proba = None
         if hasattr(self.model, "predict_proba"):
             proba = float(max(self.model.predict_proba(X)[0]))
 
-        return PredictionOut(cluster=pred, proba=proba)
+        return PredictionOut(user_rank=pred, proba=proba)

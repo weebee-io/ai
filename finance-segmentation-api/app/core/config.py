@@ -2,7 +2,7 @@ from functools import lru_cache
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
-    MODEL_PATH: str = "models/test/rf_model.joblib"
+    MODEL_PATH: str = "models/v1/rf_model.joblib"
 
     class Config:
         env_file = ".env"
