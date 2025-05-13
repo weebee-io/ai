@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+*.log
+
+# Environment
+.env
+.venv/
+venv/
+ENV/
+env/
+*.env
+
+# Jupyter / IPython
+.ipynb_checkpoints
+
+# IDE/Editor
+.vscode/
+.idea/
+.DS_Store
+
+# Compiled files
+*.exe
+*.dll
+*.obj
+*.o
+*.a
+*.out
+
+# Model artifacts
+*.joblib
+*.pkl
+*.h5
+
+# Logs
+*.log
+*.csv
+*.db
