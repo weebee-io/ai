@@ -18,3 +18,6 @@ threadpoolctl==3.6.0
 typing-inspection==0.4.0
 typing_extensions==4.13.2
 uvicorn==0.34.2
+xgboost==1.7.6
+lightgbm==4.0.0
+pandas==2.2.3

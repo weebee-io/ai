@@ -1,5 +1,5 @@
 from pydantic import BaseModel
 
 class PredictionOut(BaseModel):
-    user_rank: str
+    lit_level: str
     proba: float | None = None
