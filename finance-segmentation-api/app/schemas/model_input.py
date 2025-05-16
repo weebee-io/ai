@@ -1,12 +1,11 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 class InputData(BaseModel):
-    risk_profile_score: float
-    complex_product_flag: float
-    is_married: float
-    essential_ratio: float
-    discretionary_ratio: float
-    sav_inv_ratio: float
-    spend_volatility: float
-    digital_engagement: float
-    quiz_score: float
+    risk_profile_score: int
+    complex_product_flag: int
+    is_married: int
+    essential_pct: int
+    discretionary_pct: int
+    sav_inv_ratio: int
+    spend_volatility: int
+    digital_engagement: int
