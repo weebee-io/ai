@@ -36,9 +36,19 @@ env/
 *.out
 
 # Model artifacts
-# *.joblib
+# *.joblib # 모든 .joblib 파일을 무시하려면 이 줄의 주석을 해제하세요.
 # *.pkl
 # *.h5
+
+# 특정 모델 파일 무시
+scaler copy.joblib
+scaler.joblib
+stack_model_56.joblib
+
+# 특정 이전 버전 모델 디렉토리 무시
+# (경로 수정: .gitignore 파일 위치 기준으로 상대 경로여야 합니다)
+models/v1/
+models/v2/
 
 # Logs
 *.log
