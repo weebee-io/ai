@@ -36,9 +36,9 @@ env/
 *.out
 
 # Model artifacts
-*.joblib
-*.pkl
-*.h5
+# *.joblib
+# *.pkl
+# *.h5
 
 # Logs
 *.log
