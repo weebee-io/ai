@@ -18,6 +18,7 @@ venv/
 ENV/
 env/
 *.env
+venv_mlflow/
 
 # Jupyter / IPython
 .ipynb_checkpoints
@@ -47,6 +48,13 @@ stack_model_56.joblib
 
 # 특정 이전 버전 모델 디렉토리 무시
 # (경로 수정: .gitignore 파일 위치 기준으로 상대 경로여야 합니다)
+# Docker
+.dockerignore
+
+# MLflow
+mlruns/
+.mlflow_cache/
+
 models/v1/
 models/v2/
 
