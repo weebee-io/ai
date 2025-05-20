@@ -19,6 +19,7 @@ ENV/
 env/
 *.env
 venv_mlflow/
+finance-segmentation-api/.env
 
 # Jupyter / IPython
 .ipynb_checkpoints

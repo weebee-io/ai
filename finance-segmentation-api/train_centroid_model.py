@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from datetime import datetime
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
@@ -14,6 +15,8 @@ import matplotlib
 matplotlib.use('Agg') # Ensure this is called before pyplot import
 import matplotlib.pyplot as plt
 import seaborn as sns
+import mysql.connector
+from dotenv import load_dotenv
 
 # --- MLflow 설정 및 기본 파라미터 ---
 MLFLOW_EXPERIMENT_NAME = "Centroid Model Training (CSV Input)"
@@ -37,21 +40,26 @@ KMEANS_N_CLUSTERS = 3 # 'SILVER', 'GOLD', 'BRONZE'
 KMEANS_N_INIT = 'auto'
 KMEANS_MAX_ITER = 300
 
-# 피처 이름 리스트 (CSV 파일의 컬럼명과 일치해야 함)
+# 피처 이름 리스트 (MySQL survey 테이블의 컬럼명과 일치해야 함)
 FEATURE_NAMES = [
-    'essential_pct', 'discretionary_pct', 'risk_profile_score',
-    'complex_product_flag', 'digital_engagement', 'is_married',
-    'spend_volatility', 'sav_inv_ratio'
+    'essential_pct',        # 필수 소비 비율
+    'discretionary_pct',    # 재량 소비 비율
+    'risk_profile_score',   # 위험 프로파일 점수 (1-10)
+    'complex_product_flag', # 복합 상품 보유 여부 (0 또는 1)
+    'digital_engagement',   # 디지털 참여도 (1-5)
+    'is_married',           # 결혼 여부 (0 또는 1)
+    'spend_volatility',     # 소비 변동성 (0-1)
+    'sav_inv_ratio'        # 저축 대비 투자 비율
 ]
 
-# 중요: 'masterpiece.csv' 파일 내 실제 정답 레이블 컬럼명으로 변경해주세요!
-YOUR_ACTUAL_LABEL_COLUMN_IN_CSV = 'cluster' # masterpiece.csv의 실제 정답 레이블 컬럼 (0,1,2 값)
+LABEL_COLUMN_NAME = 'user_rank' # 실제 레이블이 있는 컬럼명 (user 테이블)
 
 # KMeans 클러스터 인덱스와 실제 세그먼트 이름 간의 고정 매핑
 # Memory eb6d10fe: 0 -> 'SILVER', 1 -> 'GOLD', 2 -> 'BRONZE'
 # 이 순서는 K-means 클러스터 중심점의 순서와 대응된다고 가정합니다.
 # 실제로는 클러스터 특성 분석 후 이 매핑을 검증/결정해야 합니다.
-FIXED_CLASS_MAPPING_INDICES_TO_NAMES = {0: 'SILVER', 1: 'GOLD', 2: 'BRONZE'}
+FIXED_CLASS_MAPPING_INDICES_TO_NAMES = {0: 'SILVER', 1: 'GOLD', 2: 'BRONZE'} # 예시: 실제 값으로 변경
+FIXED_CLASS_MAPPING_NAMES_TO_INDICES = {name: idx for idx, name in FIXED_CLASS_MAPPING_INDICES_TO_NAMES.items()}
 
 class KMeansPyfuncWrapper(mlflow.pyfunc.PythonModel):
     def load_context(self, context):
@@ -91,28 +99,83 @@ class KMeansPyfuncWrapper(mlflow.pyfunc.PythonModel):
         predicted_classes = [mapping_int_keys.get(idx, f"Unmapped_Cluster_{idx}") for idx in cluster_indices]
         return predicted_classes
 
-def load_data_from_csv(file_path, feature_cols, label_col):
+
+def load_data_from_mysql(feature_cols, label_col):
+    load_dotenv() # .env 파일에서 환경 변수 로드
+
+    db_host = os.getenv("DB_HOST")
+    db_user = os.getenv("DB_USER")
+    db_password = os.getenv("DB_PASSWORD")
+    db_name = os.getenv("DB_NAME")
+    db_port = os.getenv("DB_PORT", "3306") # 기본 MySQL 포트
+
+    if not all([db_host, db_user, db_password, db_name]):
+        print("오류: 데이터베이스 연결 정보가 .env 파일에 올바르게 설정되지 않았습니다.")
+        print("필수 환경 변수: DB_HOST, DB_USER, DB_PASSWORD, DB_NAME")
+        return None, None
+
+    conn = None
     try:
-        df = pd.read_csv(file_path)
-        print(f"CSV 파일 '{file_path}'에서 데이터 로드 완료. 총 {len(df)}개의 레코드가 로드되었습니다.")
-        
-        # 필요한 피처 컬럼과 레이블 컬럼이 모두 있는지 확인
-        required_cols = feature_cols + [label_col]
-        missing_cols = [col for col in required_cols if col not in df.columns]
-        if missing_cols:
-            print(f"오류: CSV 파일에 다음 필수 컬럼이 없습니다: {missing_cols}")
+        conn = mysql.connector.connect(
+            host=db_host,
+            user=db_user,
+            password=db_password,
+            database=db_name,
+            port=db_port
+        )
+        print(f"MySQL 데이터베이스 '{db_name}'에 성공적으로 연결되었습니다.")
+
+        # DB의 컬럼명이 feature_cols, label_col과 일치해야 함
+        # feature_cols는 survey 테이블에서, label_col은 user 테이블에서 가져옴
+        survey_feature_cols_str = ", ".join([f"s.`{col}`" for col in feature_cols])
+        user_label_col_str = f"u.`{label_col}`"
+
+        query = f"""
+        SELECT 
+            {survey_feature_cols_str}, 
+            {user_label_col_str}
+        FROM 
+            survey s
+        JOIN 
+            users u ON s.user_id = u.user_id
+        """
+        print(f"Executing query: {query}")
+        df = pd.read_sql(query, conn)
+        print(f"데이터베이스에서 {len(df)}개의 레코드를 로드했습니다.")
+
+        # 필수 컬럼들이 DataFrame에 모두 있는지 확인
+        # feature_cols는 s.col 형태로, label_col은 u.col 형태로 가져오므로, df에는 원래 컬럼명으로 존재
+        all_expected_columns = feature_cols + [label_col]
+        missing_cols_in_df = [col for col in all_expected_columns if col not in df.columns]
+        if missing_cols_in_df:
+            print(f"오류: 데이터베이스에서 다음 필수 컬럼을 가져오지 못했습니다: {missing_cols_in_df}")
             return None, None
-        
+            
         X = df[feature_cols].copy()
-        y_true = df[label_col].astype(int).copy() # 실제 레이블이 0,1,2 정수형이므로 타입 변환
+        # 레이블 컬럼(user_rank)의 문자열 값을 정수 인덱스로 변환
+        if not df[label_col].isin(FIXED_CLASS_MAPPING_NAMES_TO_INDICES.keys()).all():
+            unknown_labels = df[~df[label_col].isin(FIXED_CLASS_MAPPING_NAMES_TO_INDICES.keys())][label_col].unique()
+            print(f"오류: '{label_col}' 컬럼에 알 수 없는 레이블 값이 포함되어 있습니다: {unknown_labels}")
+            print(f"기대하는 레이블 값: {list(FIXED_CLASS_MAPPING_NAMES_TO_INDICES.keys())}")
+            return None, None
+            
+        y_true = df[label_col].map(FIXED_CLASS_MAPPING_NAMES_TO_INDICES).astype(int).copy()
+        print(f"레이블 컬럼 '{label_col}'을 성공적으로 정수 인덱스로 변환했습니다.")
         return X, y_true
-        
-    except FileNotFoundError:
-        print(f"오류: CSV 파일 '{file_path}'을(를) 찾을 수 없습니다.")
+
+    except mysql.connector.Error as err:
+        print(f"MySQL 연결 또는 쿼리 실행 중 오류 발생: {err}")
+        # mlflow.log_param("data_loading_error", f"MySQL error: {err}")
         return None, None
     except Exception as e:
-        print(f"CSV 파일 로드 중 오류 발생: {e}")
+        print(f"데이터베이스 데이터 로드 중 일반 오류 발생: {e}")
+        # mlflow.log_param("data_loading_error", f"Generic DB load error: {e}")
         return None, None
+    finally:
+        if conn and conn.is_connected():
+            conn.close()
+            print("MySQL 연결이 닫혔습니다.")
+
 
 def map_kmeans_clusters_to_true_labels(cluster_assignments, y_true, class_mapping_indices_to_names):
     """KMeans 클러스터 인덱스를 class_mapping_indices_to_names에 따라 실제 레이블 이름으로 변환합니다."""
@@ -127,46 +190,53 @@ def map_kmeans_clusters_to_true_labels(cluster_assignments, y_true, class_mappin
         mapped_predictions = mapped_predictions.fillna('Unmapped_Cluster')
     return mapped_predictions
 
+
 def train_centroid_model():
     mlflow.set_experiment(MLFLOW_EXPERIMENT_NAME)
     
-    with mlflow.start_run() as run:
-        run_id = run.info.run_id
-        print(f"MLflow Run ID: {run_id}")
-        mlflow.log_param("run_id", run_id)
-        mlflow.log_param("data_source", CSV_FILE_PATH)
+    with mlflow.start_run(run_name=f"KMeans Training Run - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}") as run:
+        mlflow.log_param("model_type", "KMeans")
+        mlflow.log_param("num_features", len(FEATURE_NAMES))
+        mlflow.log_param("features", FEATURE_NAMES)
+        mlflow.log_param("label_column_name_in_source", LABEL_COLUMN_NAME)
+        mlflow.log_param("fixed_class_mapping_indices_to_names", str(FIXED_CLASS_MAPPING_INDICES_TO_NAMES))
+        mlflow.log_param("fixed_class_mapping_names_to_indices", str(FIXED_CLASS_MAPPING_NAMES_TO_INDICES))
 
-        print(f"'{CSV_FILE_PATH}'에서 데이터 로드 중...")
-        X_features, y_true = load_data_from_csv(CSV_FILE_PATH, FEATURE_NAMES, YOUR_ACTUAL_LABEL_COLUMN_IN_CSV)
-        
-        if X_features is None or y_true is None:
+        # 데이터 로드
+        print(f"'{MLFLOW_EXPERIMENT_NAME}' 실험 하에 다음 소스에서 데이터 로드 중: MySQL (survey & user 테이블 조인)")
+        X, y_true = load_data_from_mysql(FEATURE_NAMES, LABEL_COLUMN_NAME)
+        mlflow.log_param("data_source", "mysql_survey_user_join")
+
+        if X is None or y_true is None:
             print("데이터 로드 실패. 학습을 중단합니다.")
-            mlflow.log_param("data_loading_status", "failed_or_empty_csv")
+            mlflow.log_param("data_loading_status", "failed_db_join_or_mapping_issue")
             return
         
-        mlflow.log_param("data_loading_status", "success_csv")
-        mlflow.log_metric("loaded_records_count", len(X_features))
+        mlflow.log_param("data_loading_status", "success_db")
+        mlflow.log_metric("loaded_records_count", len(X))
 
         print("데이터 전처리 (결측치 처리)...")
-        if X_features.isnull().values.any(): # Use .values.any() for speed on larger dataframes
+        if X.isnull().values.any():
             print("피처 데이터에 결측치가 발견되어 0으로 대체합니다.")
-            missing_counts = X_features.isnull().sum()
+            missing_counts = X.isnull().sum()
+            print("결측치 수:\n", missing_counts[missing_counts > 0])
             for col, count in missing_counts.items():
                 if count > 0: mlflow.log_metric(f"missing_{col}_count_before_fill", count)
-            X_features = X_features.fillna(0)
+            X = X.fillna(0)
             mlflow.log_param("missing_value_handling", "filled_with_zero")
         else:
-            mlflow.log_param("missing_value_handling", "no_missing_values_found")
+            print("피처 데이터에 결측치가 없습니다.")
+            mlflow.log_param("missing_value_handling", "none_needed")
         
         # 데이터 분할 (정답 레이블 y_true를 사용하여 계층적 샘플링 시도)
         try:
             X_train, X_test, y_train, y_test = train_test_split(
-                X_features, y_true, test_size=TEST_SIZE, random_state=RANDOM_STATE, stratify=y_true
+                X, y_true, test_size=TEST_SIZE, random_state=RANDOM_STATE, stratify=y_true
             )
         except ValueError as e:
             print(f"Stratify 적용 중 오류 (레이블 분포 문제 가능성): {e}. Stratify 없이 분할합니다.")
             X_train, X_test, y_train, y_test = train_test_split(
-                X_features, y_true, test_size=TEST_SIZE, random_state=RANDOM_STATE
+                X, y_true, test_size=TEST_SIZE, random_state=RANDOM_STATE
             )
 
         mlflow.log_param("test_size", TEST_SIZE)
