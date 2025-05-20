@@ -64,4 +64,4 @@ models/v2/
 *.db
 
 # Datafile
-*.csv
+.masterpiece.csv

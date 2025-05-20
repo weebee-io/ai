@@ -1,0 +1,15 @@
+artifact_uri: file:///Users/henry/Desktop/final-project/ai/mlruns/726543278140246515/a875ea00c84f493d8359e3034b5f27ee/artifacts
+end_time: 1747706454966
+entry_point_name: ''
+experiment_id: '726543278140246515'
+lifecycle_stage: active
+run_id: a875ea00c84f493d8359e3034b5f27ee
+run_name: lyrical-bird-58
+run_uuid: a875ea00c84f493d8359e3034b5f27ee
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1747706454960
+status: 3
+tags: []
+user_id: henry

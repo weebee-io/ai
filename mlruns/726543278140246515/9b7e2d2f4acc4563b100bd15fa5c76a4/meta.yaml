@@ -1,0 +1,15 @@
+artifact_uri: file:///Users/henry/Desktop/final-project/ai/mlruns/726543278140246515/9b7e2d2f4acc4563b100bd15fa5c76a4/artifacts
+end_time: 1747706385831
+entry_point_name: ''
+experiment_id: '726543278140246515'
+lifecycle_stage: active
+run_id: 9b7e2d2f4acc4563b100bd15fa5c76a4
+run_name: angry-mole-506
+run_uuid: 9b7e2d2f4acc4563b100bd15fa5c76a4
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1747706385824
+status: 3
+tags: []
+user_id: henry
