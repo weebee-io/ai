@@ -56,6 +56,8 @@ finance-segmentation-api/
 
 ## 🚀 실행 방법 (로컬 개발)
 
+## 파이썬 3.11로 설치해야함 
+
 ```bash
 # 1. 의존성 설치
 pip install -r requirements.txt
@@ -70,7 +72,7 @@ uvicorn app.main:app --reload
 
 ## 📊 사용 기술
 
-- **언어**: Python 3.10+
+- **언어**: Python 3.11
 - **ML 모델**: scikit-learn (RandomForest, KMeans), joblib
 - **웹 프레임워크**: FastAPI
 - **시각화**: matplotlib, seaborn
