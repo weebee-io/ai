@@ -62,3 +62,6 @@ models/v2/
 *.log
 *.csv
 *.db
+
+# Datafile
+*.csv
