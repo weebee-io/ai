@@ -61,6 +61,69 @@ LABEL_COLUMN_NAME = 'user_rank' # 실제 레이블이 있는 컬럼명 (user 테
 FIXED_CLASS_MAPPING_INDICES_TO_NAMES = {0: 'SILVER', 1: 'GOLD', 2: 'BRONZE'} # 예시: 실제 값으로 변경
 FIXED_CLASS_MAPPING_NAMES_TO_INDICES = {name: idx for idx, name in FIXED_CLASS_MAPPING_INDICES_TO_NAMES.items()}
 
+# True label column name in the CSV file
+CSV_TRUE_LABEL_COLUMN_NAME = 'cluster'
+
+def load_data_from_csv(csv_path, feature_cols, true_label_col_name):
+    """
+    Loads data from a CSV file.
+    Assumes the true_label_col_name contains integer labels (0, 1, 2, ...)
+    that directly correspond to the indices used by FIXED_CLASS_MAPPING_INDICES_TO_NAMES.
+    """
+    print(f"Loading data from CSV: {csv_path}")
+    try:
+        df = pd.read_csv(csv_path)
+        print(f"Successfully loaded {len(df)} records from {csv_path}")
+
+        # Check for feature columns
+        missing_feature_cols = [col for col in feature_cols if col not in df.columns]
+        if missing_feature_cols:
+            print(f"Error: CSV file is missing feature columns: {missing_feature_cols}")
+            mlflow.log_param("data_loading_error", f"CSV missing features: {missing_feature_cols}")
+            return None, None
+
+        # Check for label column
+        if true_label_col_name not in df.columns:
+            print(f"Error: CSV file is missing the label column: {true_label_col_name}")
+            mlflow.log_param("data_loading_error", f"CSV missing label col: {true_label_col_name}")
+            return None, None
+
+        X = df[feature_cols].copy()
+        
+        # Ensure label column is integer type
+        y_true_series = df[true_label_col_name].copy()
+        if not pd.api.types.is_integer_dtype(y_true_series):
+            try:
+                y_true_series = y_true_series.astype(int)
+                print(f"Label column '{true_label_col_name}' successfully cast to integer.")
+            except ValueError:
+                print(f"Error: Label column '{true_label_col_name}' contains non-integer values and could not be cast to int.")
+                mlflow.log_param("data_loading_error", f"CSV label col {true_label_col_name} not int convertible.")
+                return None, None
+        
+        # Verify that the integer labels are within the expected range (0, 1, 2 for KMEANS_N_CLUSTERS=3)
+        expected_label_indices = set(range(KMEANS_N_CLUSTERS))
+        actual_label_indices = set(y_true_series.unique())
+        
+        if not actual_label_indices.issubset(expected_label_indices):
+            print(f"Warning: Label column '{true_label_col_name}' contains unexpected integer values: {actual_label_indices - expected_label_indices}. Expected: {expected_label_indices}")
+            # Log this warning to MLflow, but proceed if desired.
+            mlflow.log_param("data_label_warning", f"Unexpected labels in {true_label_col_name}: {actual_label_indices - expected_label_indices}")
+            # Depending on strictness, one might choose to return None, None here.
+
+        print(f"Features and labels loaded successfully from CSV. Label column '{true_label_col_name}' used.")
+        return X, y_true_series
+
+    except FileNotFoundError:
+        print(f"Error: CSV file not found at {csv_path}")
+        mlflow.log_param("data_loading_error", f"CSV file not found: {csv_path}")
+        return None, None
+    except Exception as e:
+        print(f"Error loading data from CSV '{csv_path}': {e}")
+        mlflow.log_param("data_loading_error", f"CSV load error: {e}")
+        return None, None
+
+
 class KMeansPyfuncWrapper(mlflow.pyfunc.PythonModel):
     def load_context(self, context):
         model_bundle_path = context.artifacts["model_bundle"]
@@ -198,21 +261,22 @@ def train_centroid_model():
         mlflow.log_param("model_type", "KMeans")
         mlflow.log_param("num_features", len(FEATURE_NAMES))
         mlflow.log_param("features", FEATURE_NAMES)
-        mlflow.log_param("label_column_name_in_source", LABEL_COLUMN_NAME)
         mlflow.log_param("fixed_class_mapping_indices_to_names", str(FIXED_CLASS_MAPPING_INDICES_TO_NAMES))
         mlflow.log_param("fixed_class_mapping_names_to_indices", str(FIXED_CLASS_MAPPING_NAMES_TO_INDICES))
 
-        # 데이터 로드
-        print(f"'{MLFLOW_EXPERIMENT_NAME}' 실험 하에 다음 소스에서 데이터 로드 중: MySQL (survey & user 테이블 조인)")
-        X, y_true = load_data_from_mysql(FEATURE_NAMES, LABEL_COLUMN_NAME)
-        mlflow.log_param("data_source", "mysql_survey_user_join")
+        # 데이터 로드 (CSV)
+        print(f"'{MLFLOW_EXPERIMENT_NAME}' 실험 하에 다음 소스에서 데이터 로드 중: CSV ({CSV_FILE_PATH})")
+        X, y_true = load_data_from_csv(CSV_FILE_PATH, FEATURE_NAMES, CSV_TRUE_LABEL_COLUMN_NAME)
+        mlflow.log_param("data_source", f"csv:{CSV_FILE_PATH}")
+        # Update label column name logged to reflect CSV source
+        mlflow.log_param("label_column_name_in_source", CSV_TRUE_LABEL_COLUMN_NAME)
 
         if X is None or y_true is None:
             print("데이터 로드 실패. 학습을 중단합니다.")
-            mlflow.log_param("data_loading_status", "failed_db_join_or_mapping_issue")
+            mlflow.log_param("data_loading_status", "failed_csv_load_or_missing_cols_issue")
             return
         
-        mlflow.log_param("data_loading_status", "success_db")
+        mlflow.log_param("data_loading_status", "success_csv")
         mlflow.log_metric("loaded_records_count", len(X))
 
         print("데이터 전처리 (결측치 처리)...")
