@@ -27,7 +27,7 @@ with DAG(
     dag_id='centroid_model_training_pipeline_csv',
     default_args=default_args,
     description='Centroid model training pipeline using MLflow, Airflow, and CSV input. Runs every 5 minutes for testing.',
-    schedule= '*/30 * * * *',  # 매 30분마다 실행
+    schedule= None,  # 수동으로만 실행 (자동 스케줄링 없음)
     start_date=pendulum.today('UTC'), # 오늘 UTC 자정부터 시작
     catchup=False,
     tags=['ml', 'training', 'mlflow', 'finance-segmentation', 'csv', 'test'],
