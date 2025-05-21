@@ -6,7 +6,7 @@ fastapi==0.115.12
 h11==0.16.0
 idna==3.10
 joblib==1.5.0
-numpy==2.2.5
+numpy==1.26.4
 pydantic==2.11.4
 pydantic-settings==2.9.1
 pydantic_core==2.33.2
@@ -22,4 +22,5 @@ uvicorn==0.34.2
 xgboost==1.7.6
 lightgbm
 pandas==2.2.3
-mlflow
+mlflow==2.8.0
+kafka-python==2.0.2

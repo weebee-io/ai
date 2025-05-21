@@ -20,6 +20,9 @@ env/
 *.env
 venv_mlflow/
 finance-segmentation-api/.env
+new_venv311/
+venv311/
+
 
 # Jupyter / IPython
 .ipynb_checkpoints
@@ -66,3 +69,4 @@ models/v2/
 
 # Datafile
 .masterpiece.csv
+
