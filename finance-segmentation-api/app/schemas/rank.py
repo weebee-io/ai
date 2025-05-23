@@ -1,5 +1,6 @@
 from pydantic import BaseModel
+from typing import Optional
 
 class PredictionOut(BaseModel):
     lit_level: str
-    proba: float | None = None
+    proba: Optional[float] = None

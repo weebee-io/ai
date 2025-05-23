@@ -1,0 +1,140 @@
+version: '3.8'
+
+# 기본 Airflow 환경 변수 설정
+x-airflow-common: &airflow-common
+  image: apache/airflow:2.8.1
+  environment: &airflow-common-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+    AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+    AIRFLOW__CORE__FERNET_KEY: '6SEJis-75KhjizeY-EDR-jclWVFea3XCfHNdMIKdk6Q='
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'false'
+    AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth'
+    AIRFLOW__WEBSERVER__SECRET_KEY: 'airflow-secret-key'
+    AIRFLOW__WEBSERVER__EXPOSE_CONFIG: 'True'
+    AIRFLOW__WEBSERVER__RBAC: 'True'
+    KAFKA_BOOTSTRAP_SERVERS: 'kafka:29092'
+    FASTAPI_SEGMENTATION_SERVICE: 'http://finance-segmentation-api:8000'
+    ES_HOST: 'elasticsearch'
+    ES_PORT: '9200'
+    DEBUG_MODE: 'False'
+    _PIP_ADDITIONAL_REQUIREMENTS: 'apache-airflow-providers-apache-kafka confluent-kafka pydantic pandas requests elasticsearch elasticsearch-dsl'
+  volumes:
+    - ./dags:/opt/airflow/dags
+    - ./logs:/opt/airflow/logs
+    - ./plugins:/opt/airflow/plugins
+    - ./config:/opt/airflow/config
+    - /Users/henry/Desktop/final-project/weebee/ml/finance-segmentation-api:/opt/finance-segmentation-api
+  networks:
+    - weebee-network
+
+services:
+  # PostgreSQL 서비스
+  postgres:
+    image: postgres:13
+    container_name: postgres
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres-db-volume:/var/lib/postgresql/data
+    networks:
+      - weebee-network
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 5s
+      retries: 5
+
+  # Airflow 초기화 서비스
+  airflow-init:
+    <<: *airflow-common
+    container_name: airflow-init
+    depends_on:
+      - postgres
+    entrypoint: /bin/bash
+    command: |
+      -c '
+      airflow db init && \
+      airflow users create \
+        --username admin \
+        --password admin \
+        --firstname Admin \
+        --lastname User \
+        --role Admin \
+        --email admin@example.com
+      '
+    restart: on-failure
+
+  # Airflow 웹서버
+  airflow-webserver:
+    <<: *airflow-common
+    container_name: airflow-webserver
+    depends_on:
+      - postgres
+      - airflow-init
+    ports:
+      - "8082:8080"
+    command: webserver
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # Airflow 스케줄러
+  airflow-scheduler:
+    <<: *airflow-common
+    container_name: airflow-scheduler
+    depends_on:
+      - postgres
+      - airflow-webserver
+    command: scheduler
+    restart: always
+
+  # FastAPI 세그먼테이션 서비스
+  finance-segmentation-api:
+    build:
+      context: /Users/henry/Desktop/final-project/weebee/ml/finance-segmentation-api
+      dockerfile: Dockerfile
+    container_name: finance-segmentation-api
+    ports:
+      - "8000:8000"
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - DEBUG_MODE=False
+      - AUTO_START_KAFKA=True
+    volumes:
+      - /Users/henry/Desktop/final-project/weebee/ml/finance-segmentation-api:/app
+    networks:
+      - weebee-network
+    restart: always
+
+  # Elasticsearch 서비스
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.14.0
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - xpack.security.enabled=false
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    networks:
+      - weebee-network
+    restart: always
+
+networks:
+  weebee-network:
+    name: weebee-network
+    external: true
+
+volumes:
+  postgres-db-volume:
+  elasticsearch-data:

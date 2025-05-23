@@ -1,0 +1,110 @@
+version: '3.8'
+
+services:
+  airflow-webserver:
+    image: apache/airflow:2.8.1
+    container_name: airflow-webserver
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=sqlite:////opt/airflow/airflow.db
+      - AIRFLOW__CORE__FERNET_KEY=''
+      - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=true
+      - AIRFLOW__CORE__LOAD_EXAMPLES=false
+      - AIRFLOW__API__AUTH_BACKENDS='airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session'
+      - AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK=true
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - FASTAPI_SEGMENTATION_SERVICE=http://host.docker.internal:8000
+      - ES_HOST=elasticsearch
+      - ES_PORT=9200
+      - DEBUG_MODE=True
+      - _PIP_ADDITIONAL_REQUIREMENTS=apache-airflow-providers-apache-kafka confluent-kafka pydantic pandas requests elasticsearch elasticsearch-dsl
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+      - ./config:/opt/airflow/config
+      - /Users/henry/Desktop/final-project/weebee/ml/finance-segmentation-api:/opt/finance-segmentation-api
+    ports:
+      - "8082:8080"
+    command: webserver
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: always
+    user: "${AIRFLOW_UID:-50000}:0"
+    networks:
+      - default
+
+  airflow-scheduler:
+    image: apache/airflow:2.8.1
+    container_name: airflow-scheduler
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=sqlite:////opt/airflow/airflow.db
+      - AIRFLOW__CORE__FERNET_KEY=''
+      - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=true
+      - AIRFLOW__CORE__LOAD_EXAMPLES=false
+      - AIRFLOW__API__AUTH_BACKENDS='airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session'
+      - AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK=true
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - FASTAPI_SEGMENTATION_SERVICE=http://host.docker.internal:8000
+      - ES_HOST=elasticsearch
+      - ES_PORT=9200
+      - DEBUG_MODE=True
+      - _PIP_ADDITIONAL_REQUIREMENTS=apache-airflow-providers-apache-kafka confluent-kafka pydantic pandas requests elasticsearch elasticsearch-dsl
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+      - ./config:/opt/airflow/config
+      - /Users/henry/Desktop/final-project/weebee/ml/finance-segmentation-api:/opt/finance-segmentation-api
+    command: scheduler
+    restart: always
+    user: "${AIRFLOW_UID:-50000}:0"
+    networks:
+      - default
+
+  airflow-init:
+    image: apache/airflow:2.8.1
+    container_name: airflow-init
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=sqlite:////opt/airflow/airflow.db
+      - AIRFLOW__CORE__FERNET_KEY=''
+      - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=true
+      - AIRFLOW__CORE__LOAD_EXAMPLES=false
+      - AIRFLOW__API__AUTH_BACKENDS='airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session'
+      - _AIRFLOW_DB_UPGRADE=true
+      - _AIRFLOW_WWW_USER_CREATE=true
+      - _AIRFLOW_WWW_USER_USERNAME=airflow
+      - _AIRFLOW_WWW_USER_PASSWORD=airflow
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+      - ./config:/opt/airflow/config
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        mkdir -p /opt/airflow/logs /opt/airflow/dags /opt/airflow/plugins /opt/airflow/config
+        chown -R "${AIRFLOW_UID:-50000}:0" /opt/airflow
+        exec /entrypoint airflow db init && \
+        airflow users create \
+        --username airflow \
+        --password airflow \
+        --firstname Admin \
+        --lastname User \
+        --role Admin \
+        --email admin@example.com
+    user: "0:0"
+    networks:
+      - default
+
+networks:
+  default:
+    name: weebee-network
+    external: true
