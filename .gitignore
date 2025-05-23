@@ -22,6 +22,7 @@ venv_mlflow/
 finance-segmentation-api/.env
 new_venv311/
 venv311/
+zheng/
 
 
 # Jupyter / IPython
@@ -68,5 +69,5 @@ models/v2/
 *.db
 
 # Datafile
-.masterpiece.csv
+masterpiece.csv
 

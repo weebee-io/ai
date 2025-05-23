@@ -1,0 +1,65 @@
+version: '3'
+services:
+  airflow-webserver:
+    image: apache/airflow:2.8.1
+    container_name: airflow-webserver
+    restart: always
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=sqlite:////opt/airflow/airflow.db
+      - AIRFLOW__CORE__FERNET_KEY=6SEJis-75KhjizeY-EDR-jclWVFea3XCfHNdMIKdk6Q=
+      - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=true
+      - AIRFLOW__CORE__LOAD_EXAMPLES=false
+      - AIRFLOW__API__AUTH_BACKENDS=airflow.api.auth.backend.basic_auth
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - FASTAPI_SEGMENTATION_SERVICE=http://host.docker.internal:8000
+      - ES_HOST=elasticsearch
+      - ES_PORT=9200
+      - DEBUG_MODE=True
+      - _PIP_ADDITIONAL_REQUIREMENTS=apache-airflow-providers-apache-kafka confluent-kafka pydantic pandas requests elasticsearch elasticsearch-dsl
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+      - ./config:/opt/airflow/config
+      - /Users/henry/Desktop/final-project/weebee/ml/finance-segmentation-api:/opt/finance-segmentation-api
+    ports:
+      - "8082:8080"
+    command: >
+      bash -c "airflow db init && 
+      airflow users create --username admin --password admin --firstname Admin --lastname User --role Admin --email admin@example.com &&
+      airflow webserver"
+    networks:
+      - weebee-network
+
+  airflow-scheduler:
+    image: apache/airflow:2.8.1
+    container_name: airflow-scheduler
+    restart: always
+    depends_on:
+      - airflow-webserver
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=sqlite:////opt/airflow/airflow.db
+      - AIRFLOW__CORE__FERNET_KEY=6SEJis-75KhjizeY-EDR-jclWVFea3XCfHNdMIKdk6Q=
+      - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=true
+      - AIRFLOW__CORE__LOAD_EXAMPLES=false
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - FASTAPI_SEGMENTATION_SERVICE=http://host.docker.internal:8000
+      - ES_HOST=elasticsearch
+      - ES_PORT=9200
+      - DEBUG_MODE=True
+      - _PIP_ADDITIONAL_REQUIREMENTS=apache-airflow-providers-apache-kafka confluent-kafka pydantic pandas requests elasticsearch elasticsearch-dsl
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+      - ./config:/opt/airflow/config
+      - /Users/henry/Desktop/final-project/weebee/ml/finance-segmentation-api:/opt/finance-segmentation-api
+    command: airflow scheduler
+    networks:
+      - weebee-network
+
+networks:
+  weebee-network:
+    external: true
