@@ -18,7 +18,7 @@ except ImportError:
 
 
 # Kafka 설정
-KAFKA_BOOTSTRAP_SERVERS = 'localhost:9092'
+KAFKA_BOOTSTRAP_SERVERS = '52.78.4.114:9092'
 INPUT_TOPIC = 'clustering_userRank'
 OUTPUT_TOPIC = 'clustering_results'
 
