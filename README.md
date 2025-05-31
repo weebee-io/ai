@@ -78,7 +78,7 @@ docker build -t finance-segmentation-api:latest .
 # 2. 도커 로그인
 docker login
 
-# 3. 이미지 태그 지정
+# 3. 이미지 태그 지정 ( 생략가능 )
 docker tag finance-segmentation-api:latest yourusername/finance-segmentation-api:latest
 
 # 4. 이미지 업로드
