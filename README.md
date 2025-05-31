@@ -70,6 +70,31 @@ uvicorn app.main:app --reload
 
 ---
 
+## 도커허브에 배포 및 ec2로 돌리는 법 까지.
+```
+# 1. 도커 빌드
+docker build -t finance-segmentation-api:latest .
+
+# 2. 도커 로그인
+docker login
+
+# 3. 이미지 태그 지정
+docker tag finance-segmentation-api:latest yourusername/finance-segmentation-api:latest
+
+# 4. 이미지 업로드
+docker push yourusername/finance-segmentation-api:latest
+
+# 5. ec2에서 이미지 내려받기
+docker pull yourusername/finance-segmentation-api:latest
+
+# 6. 기존 컨테이너 중지 및 제거
+docker stop finance-api
+docker rm finance-api
+
+# 7. 새 이미지로 컨테이너 재시작
+docker run -d --name finance-api -p 8080:8080 --restart=always yourusername/finance-segmentation-api:latest
+```
+---
 ## 📊 사용 기술
 
 - **언어**: Python 3.11
